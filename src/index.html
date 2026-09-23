@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A free, open-source, browser-only dataset analysis tool." />
+    <meta name="theme-color" content="#155eef" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>Dataset Analyzer</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./main.ts"></script>
+  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});</script>
+  </body>
+</html>

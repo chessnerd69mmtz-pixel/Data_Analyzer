@@ -1,55 +1,38 @@
 # Dataset Analyzer
 
-Dataset Analyzer is a free, open-source, browser-only dataset analysis tool designed for GitHub Pages.
+A free, browser-only dataset analysis workstation. The app is designed for GitHub Pages and does not require an API key, backend, paid service, database, or LLM.
 
-It extracts tabular data locally, requires an explicit confirmation of the extracted dataset before analysis, runs deterministic statistics in Pyodide, and produces plain-English findings whose numeric claims are traceable to computed results and confirmed extraction data.
+## Main workflow
 
-There is no application backend, no API key, no paid service, and no LLM.
+Import a dataset → inspect extraction candidates → edit and confirm the exact snapshot → profile/clean/query/explore → run deterministic statistics or machine learning → export the report.
 
-## Privacy model
+## Supported ingestion
 
-User-supplied files are read in the browser and transferred only to in-browser Web Workers. Statistical calculations run locally in Pyodide. A public Google Sheets URL is fetched by the browser only when the user explicitly supplies it; no credentials are requested.
+CSV, TSV, XLSX, XLS, ODS, JSON records, DOCX tables, selectable-text PDFs, OCR-backed PDF/image tables, Markdown tables, plain-text tables, public Google Sheets CSV exports, and manual paste.
 
-The interface states this directly before the user uploads data.
+The extractor checks content signatures, detects extension/content mismatches, preserves extraction provenance, and blocks analysis until the user explicitly confirms the editable snapshot.
 
-## Supported formats and extraction reliability
+## Data Lab
 
-The upgraded release retains the original ingestion pipeline and adds a local Data Lab for cleaning, profiling, visualization, querying, and project persistence.
+The post-confirmation Data Lab provides dataset profiling, editable paginated data, undo/redo, string transforms, missing-value filling, duplicate/blank-row removal, calculated columns, filtering/querying, charts, correlation exploration, project JSON export, CSV/XLSX/Markdown export, and analysis controls.
 
-## Zero-cost Data Lab
+## Statistics / ML
 
-- Dataset health dashboard and column-level profiling/data dictionary.
-- Searchable, paginated editable data grid.
-- Undo/redo and reset to confirmed snapshot.
-- Text cleanup, missing-value filling, duplicate/blank-row removal.
-- Numeric transforms and calculated columns.
-- Multi-condition filtering.
-- Interactive charts and correlation/outlier views.
-- Local query lab.
-- CSV/JSON/XLSX/Markdown exports.
-- Project import/export and browser-local saving.
-- Installable offline-friendly shell.
+The deterministic analysis worker supports correlation, group comparison, time trends, outlier screening, Random Forest feature importance, descriptive statistics, normality tests, multiple OLS regression, K-means clustering, and Isolation Forest anomaly detection. Multiple statistical p-values are corrected with Benjamini-Hochberg FDR.
 
-## Deterministic statistics
+## Privacy
 
-The original correlation, group comparison, categorical association, trend, outlier, and Random Forest/permutation-importance workflows remain intact. Additional descriptive statistics, normality diagnostics, multiple OLS regression, K-means clustering, and Isolation Forest anomaly detection run inside the existing Pyodide worker.
+User-supplied files are processed in browser workers. The application does not upload datasets to an application server. The only remote data operation is an explicit public Google Sheets export request initiated by the user. The app can also be installed as a PWA shell for offline-first local use after assets are cached.
 
 ## Development
 
 ```bash
 npm install
 npm run dev
-npm run build
 npm run typecheck
 npm test
 npm run test:python
-npm run test:all
+npm run build
 ```
 
-## GitHub Pages
-
-The included workflow builds the Vite application and deploys `dist/` through GitHub Actions. Set **Pages → Source** to **GitHub Actions** in the repository settings.
-
-## License
-
-MIT.
+GitHub Pages deployment is handled by .github/workflows/deploy-pages.yml.

@@ -1,0 +1,30 @@
+{
+  "name": "dataset-analyzer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:python": "python -m pytest tests/python -q",
+    "test:all": "npm test && npm run test:python",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "chart.js": "4.5.1",
+    "jszip": "3.10.2",
+    "papaparse": "5.5.3",
+    "pdfjs-dist": "6.3.289",
+    "tesseract.js": "7.0.0",
+    "xlsx": "0.20.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "@types/papaparse": "5.3.16",
+    "typescript": "5.8.3",
+    "vite": "7.0.0",
+    "vitest": "3.2.4"
+  }
+}

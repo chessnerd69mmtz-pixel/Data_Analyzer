@@ -1,0 +1,9 @@
+{
+  "name": "Dataset Analyzer",
+  "short_name": "Data Analyzer",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#155eef",
+  "description": "Free, browser-only dataset analysis and cleaning workstation."
+}

@@ -1,0 +1,7 @@
+label { display:flex; flex-direction:column; gap:6px; font-weight:700; color:#344054; margin:8px 0; }
+input, select, textarea { width:100%; border:1px solid #cfd6df; border-radius:9px; background:#fff; color:#182230; padding:9px 10px; outline:none; }
+input:focus, select:focus, textarea:focus { border-color:#84adff; box-shadow:0 0 0 3px #dbe8ff; }
+select[multiple] { min-height:120px; }
+textarea { resize:vertical; }
+input[type="checkbox"], input[type="radio"] { width:auto; }
+.tag { padding:3px 7px; font-size:.68rem; margin-left:5px; }
