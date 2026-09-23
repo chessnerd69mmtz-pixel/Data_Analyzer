@@ -35,7 +35,7 @@ export interface ManualEdit {
 }
 export interface ConfirmedDataset {
   datasetId:string; sourceCandidateTableIds:string[]; source:FileSource; confidence:Confidence; extractionTool:string; location:string;
-  headerRow:number; columns:{id:string;name:string;originalName:string;type:InferredType}[]; rows:DataValue[];
+  headerRow:number; columns:{id:string;name:string;originalName:string;type:InferredType}[]; rows:DataValue[][];
   manualEdits:ManualEdit[]; sanityFlags:SanityFlag[]; extractionLog:ExtractionLogEntry[]; confirmed:true;
   confirmedAt:string; confirmationVersion:1;
 }
