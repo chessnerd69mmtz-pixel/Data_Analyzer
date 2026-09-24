@@ -337,6 +337,34 @@ def build_conclusions(dataset,p,results):
         conclusion=f"{lead}: {factor} {verb} {target}."
         if p.get("conclusionQuestion"):
             conclusion=conclusion+" Focus question: "+str(p["conclusionQuestion"])
+        adjp=float(rec.get("adjp",1))
+        robust=float(rec.get("robust",0))
+        effect_abs=abs(float(rec.get("effect") or 0))
+        warning_count=sum(1 for chk in checks if chk["status"]=="warning")
+        fail_count=sum(1 for chk in checks if chk["status"]=="fail")
+        power_values=[float(chk.get("value")) for chk in checks if chk["name"]=="Observed-effect power screen" and chk.get("value") is not None]
+        power=max(power_values) if power_values else 0.0
+        # Validity score is a transparent evidence-quality ranking, not a probability of truth.
+        p_component=max(0.0,min(25.0,25.0*(-math.log10(max(adjp,1e-12)))/6.0))
+        effect_component=max(0.0,min(20.0,effect_abs*40.0))
+        robustness_component=20.0*max(0.0,min(1.0,robust))
+        power_component=10.0*max(0.0,min(1.0,power))
+        predictive_component=10.0*max(0.0,min(1.0,pi*5.0))
+        warning_penalty=min(15.0,warning_count*3.0+fail_count*7.0)
+        validity=round(max(0.0,min(100.0,p_component+effect_component+robustness_component+power_component+predictive_component-warning_penalty)),2)
+        derivation=[
+            f"Analyzed {len(df)} dataset rows against target '{target}' and factor '{factor}'.",
+            f"Primary method: {rec['method']}.",
+            f"Observed effect: {float(rec.get('effect') or 0):.4f} ({rec.get('effectLabel') or 'effect'}).",
+            f"Adjusted p-value used for ranking: {adjp:.6g}.",
+            f"Robustness stability: {robust*100:.1f}%."
+        ]
+        if power_values: derivation.append(f"Approximate observed-effect power: {power:.3f}.")
+        if pi>0: derivation.append(f"Tree-model predictive importance: {pi*100:.1f}%.")
+        if rec.get("ci"): derivation.append(f"Bootstrap 95% interval: [{rec['ci'][0]:.4f}, {rec['ci'][1]:.4f}].")
+        if rec.get("ids"): derivation.append("Linked statistical result IDs: "+", ".join(rec["ids"])+".")
+        selection=(f"Validity score {validity:.2f}/100 from significance, effect magnitude, robustness, power, predictive evidence, "
+                   f"and explicit penalties for warning/fail checks. User priority was {str(factor in user_set).lower()}.")
         conclusions.append({
             "factor":factor,
             "priority":"user-focus" if factor in user_set else "discovered",
@@ -349,14 +377,24 @@ def build_conclusions(dataset,p,results):
             "effectSize":float(rec.get("effect") or 0),
             "effectLabel":rec.get("effectLabel"),
             "confidenceInterval":rec.get("ci"),
-            "adjustedPValue":float(rec.get("adjp",1)),
-            "robustnessStability":float(rec.get("robust",0)),
+            "adjustedPValue":adjp,
+            "robustnessStability":robust,
             "predictiveImportance":pi,
             "caveats":rec["caveats"],
             "alternativeExplanations":rec["alternatives"],
-            "supportingResultIds":rec["ids"]
+            "supportingResultIds":rec["ids"],
+            "validityScore":validity,
+            "rank":0,
+            "sampleSize":int(len(df[[target,factor]].dropna())),
+            "targetColumn":target,
+            "factorType":types.get(factor,"unknown"),
+            "derivationSteps":derivation,
+            "selectionRationale":selection
         })
-    conclusions.sort(key=lambda c:(0 if c["priority"]=="user-focus" else 1,["very-strong","strong","moderate","weak","inconclusive"].index(c["evidenceStrength"]),-c["predictiveImportance"]))
+    conclusions.sort(key=lambda c:(-c["validityScore"],0 if c["priority"]=="user-focus" else 1,c["factor"].lower()))
+    conclusions=conclusions[:10]
+    for rank,item in enumerate(conclusions,1):
+        item["rank"]=rank
     benchmark=_model_benchmark(df,target,feature_cols)
     overall=[
         "User-selected factors were analyzed first and remain visible separately from automatically discovered factors.",

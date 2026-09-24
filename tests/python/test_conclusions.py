@@ -40,6 +40,9 @@ def test_user_focus_and_discovery():
     assert out["userFocusFactors"]==["FactorX"]
     assert any(x["factor"]=="FactorX" and x["priority"]=="user-focus" for x in out["conclusions"])
     assert any(x["factor"]=="FactorZ" and x["priority"]=="discovered" for x in out["conclusions"])
+    assert len(out["conclusions"]) <= 10
+    assert [x["rank"] for x in out["conclusions"]] == list(range(1, len(out["conclusions"])+1))
+    assert all(0 <= x["validityScore"] <= 100 for x in out["conclusions"])
 
 def test_focus_is_not_the_only_scan():
     p={

@@ -87,6 +87,13 @@ export interface ConclusionEvidence {
   caveats:string[];
   alternativeExplanations:string[];
   supportingResultIds:string[];
+  validityScore:number;
+  rank:number;
+  sampleSize:number;
+  targetColumn:string;
+  factorType:string;
+  derivationSteps:string[];
+  selectionRationale:string;
 }
 export interface ConclusionResponse {
   question?:string;

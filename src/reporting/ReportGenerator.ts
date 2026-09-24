@@ -16,15 +16,20 @@ export function buildReportModel(c:ReportContext):ReportModel{
   return text+"\n\n"+parts.map(v=>"- "+v).join("\n");
  };
  const conclusionText=(c.analysis.conclusions?.conclusions??[]).map(x=>[
-  "["+x.priority+"] "+x.factor,
+  "#"+x.rank+" ["+x.priority+"] "+x.factor,
   formatText(x.conclusion),
+  "Validity score: "+x.validityScore+"/100",
   "Evidence strength: "+x.evidenceStrength,
   "Practical importance: "+x.practicalImportance,
+  "Target: "+x.targetColumn+"; factor type: "+x.factorType+"; sample size: "+x.sampleSize,
   x.adjustedPValue!==undefined?"Adjusted p: "+x.adjustedPValue:"",
+  x.effectSize!==undefined?"Effect ("+(x.effectLabel||"effect")+"): "+x.effectSize:"",
   x.robustnessStability!==undefined?"Robustness stability: "+(x.robustnessStability*100).toFixed(1)+"%":"",
   x.predictiveImportance!==undefined?"Predictive importance: "+(x.predictiveImportance*100).toFixed(1)+"%":"",
-  "Checks: "+(x.checks??[]).map((z:any)=>z.name+": "+z.status).join("; "),
-  "Alternative explanations: "+(x.alternativeExplanations??[]).join(" | ")
+  "Derivation: "+(x.derivationSteps??[]).join(" | "),
+  "Checks: "+(x.checks??[]).map((z:any)=>z.name+": "+z.status+" — "+z.detail).join("; "),
+  "Alternative explanations: "+(x.alternativeExplanations??[]).join(" | "),
+  "Selection: "+x.selectionRationale
  ].filter(Boolean).join("\n")).join("\n\n");
  const limitations=["Associations and predictive importance are not causal evidence.","Extraction confidence was "+c.dataset.confidence+".",...c.analysis.failedChecks].join("\n");
  const model:ReportModel={sections:{parameters:params,extraction,summary,findings:(conclusionText?conclusionText+"\n\n":"")+ (findings||"No statistically significant result remained after FDR correction."),nonSignificant:nonsig||"None.",limitations},chartImages:c.chartImages,numericProvenance:[]};

@@ -13,3 +13,18 @@
 .conclusion-controls h3{margin-bottom:4px}
 
 .response-list{margin:.5rem 0 1rem;padding-left:1.25rem}.response-list li{margin:.35rem 0}.response-paragraph{line-height:1.65;margin:.7rem 0}
+
+.conclusion-workspace{border-top:4px solid var(--accent)}
+.conclusion-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:16px 0;background:#f8fafc;padding:10px;border:1px solid var(--line);border-radius:14px}
+.conclusion-tab{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px;text-align:left;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:9px;cursor:pointer}
+.conclusion-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab-rank{font-weight:900}.tab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tab-score{font-size:.76rem;font-weight:800}
+.conclusion-panel.hidden{display:none}.conclusion-panel.active{display:block}
+.dossier-header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.validity-score{min-width:118px;padding:12px;border-radius:12px;background:#f0f7ff;text-align:center}.validity-score strong{display:block;font-size:1.65rem;color:var(--accent)}.validity-score span{display:block;color:var(--muted);font-size:.74rem}
+.dossier-section{padding:18px 0;border-bottom:1px solid var(--line)}.dossier-section:last-child{border-bottom:0}
+.derivation-list{margin:.5rem 0;padding-left:1.35rem}.derivation-list li{margin:.5rem 0}
+.evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0}.evidence-grid span{padding:10px;border:1px solid var(--line);border-radius:10px;background:#fafbfc}
+.evidence-checks{display:flex;flex-direction:column;gap:9px}.evidence-check{display:grid;grid-template-columns:180px 1fr;gap:10px;padding:10px;border-left:4px solid #98a2b3;background:#fafbfc;border-radius:8px}.evidence-check.pass{border-left-color:#027a48}.evidence-check.warning{border-left-color:#b54708}.evidence-check.fail{border-left-color:#b42318}.evidence-check.not-run{border-left-color:#98a2b3}
+.supporting-result{border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}.dossier-chart{margin-top:12px}.neural-summary{border-left:4px solid #7f56d9}
+@media(max-width:900px){.conclusion-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.dossier-header{flex-direction:column}.evidence-check{grid-template-columns:1fr}}
