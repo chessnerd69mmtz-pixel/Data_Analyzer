@@ -11,3 +11,5 @@
 .discover-title{margin-top:26px;padding-top:20px;border-top:1px solid var(--line)}
 .conclusion-controls{border:1px solid var(--line);border-radius:14px;padding:16px;margin:16px 0;background:#f8fafc}
 .conclusion-controls h3{margin-bottom:4px}
+
+.response-list{margin:.5rem 0 1rem;padding-left:1.25rem}.response-list li{margin:.35rem 0}.response-paragraph{line-height:1.65;margin:.7rem 0}

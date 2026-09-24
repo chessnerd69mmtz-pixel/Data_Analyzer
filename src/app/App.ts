@@ -105,6 +105,13 @@ export class App {
     if (!this.state.analysis || !this.report) return;
     const a=this.state.analysis; const findings=a.results.filter(r=>r.significant); const charts=this.report.chartImages;
     const conclusions=a.conclusions?.conclusions??[];
+    const responseFormat=a.parameters.responseFormat??"both";
+    const formatConclusion=(text:string)=>{
+      const parts=text.split(/\s*[.;]\s*/).map(x=>x.trim()).filter(Boolean);
+      if(responseFormat==="bullets") return '<ul class="response-list">'+parts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+      if(responseFormat==="paragraphs") return '<p class="response-paragraph">'+esc(text)+'</p>';
+      return '<p class="response-paragraph">'+esc(text)+'</p><ul class="response-list">'+parts.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+    };
     const conclusionCard=(c:any)=>'<article class="conclusion-card"><div class="conclusion-head"><div><span class="pill '+(c.priority==="user-focus"?"high":"medium")+'">'+(c.priority==="user-focus"?"User priority":"Automatically discovered")+'</span><h3>'+esc(c.factor)+'</h3></div><span class="evidence-strength '+c.evidenceStrength+'">'+esc(c.evidenceStrength)+'</span></div><p class="conclusion-lead">'+esc(c.conclusion)+'</p><div class="conclusion-meta"><span>Practical importance: <strong>'+esc(c.practicalImportance)+'</strong></span><span>Robustness: <strong>'+((c.robustnessStability??0)*100).toFixed(1)+'%</strong></span><span>Predictive importance: <strong>'+((c.predictiveImportance??0)*100).toFixed(1)+'%</strong></span>'+(c.adjustedPValue!==undefined?'<span>Adjusted p: <strong>'+Number(c.adjustedPValue).toFixed(6)+'</strong></span>':"")+'</div><details><summary>Why this conclusion?</summary><ul>'+((c.checks??[]).map((x:any)=>'<li><strong>'+esc(x.name)+':</strong> '+esc(x.detail)+'</li>').join(""))+'</ul></details><details><summary>Possible alternative explanations / limitations</summary><ul>'+((c.alternativeExplanations??[]).concat(c.caveats??[]).map((x:string)=>'<li>'+esc(x)+'</li>').join(""))+'</ul></details></article>';
     const focus=conclusions.filter(c=>c.priority==="user-focus"), discovered=conclusions.filter(c=>c.priority==="discovered");
     const question=a.conclusions?.question?'<p><strong>Research question:</strong> '+esc(a.conclusions.question)+'</p>':"";

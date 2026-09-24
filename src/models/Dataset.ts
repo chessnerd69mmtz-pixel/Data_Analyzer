@@ -50,6 +50,7 @@ export interface AnalysisParameters {
   scanOtherFactors?:boolean;
   conclusionDepth?:"standard"|"deep"|"research";
   robustnessResamples?:number;
+  responseFormat?:"bullets"|"paragraphs"|"both";
 }
 export interface PreparedDataSummary {
   inputRows:number; rowsAfterFilters:number; rowsRemovedByFilters:number; rowsRemovedForMissing:number; finalRows:number; columns:number;

@@ -8,9 +8,16 @@ export function buildReportModel(c:ReportContext):ReportModel{
  const summary=JSON.stringify(c.analysis.dataSummary,null,2);
  const findings=c.analysis.results.filter(r=>r.significant).map(r=>[r.testUsed,"n="+r.n,r.statisticLabel+"="+r.statistic,"p="+r.pValue,"adjusted p="+(r.adjustedPValue??r.pValue),r.effectSizeLabel+"="+r.effectSize,...r.caveats.length?["Notes: "+r.caveats.join(" | ")]:[]].join("; ")).join("\n");
  const nonsig=c.analysis.results.filter(r=>!r.significant).map(r=>r.testUsed+"; adjusted p="+(r.adjustedPValue??r.pValue)).join("\n");
+ const responseFormat=c.analysis.parameters.responseFormat??"both";
+ const formatText=(text:string)=>{
+  const parts=text.split(/\s*[.;]\s*/).map(v=>v.trim()).filter(Boolean);
+  if(responseFormat==="bullets") return parts.map(v=>"- "+v).join("\n");
+  if(responseFormat==="paragraphs") return text;
+  return text+"\n\n"+parts.map(v=>"- "+v).join("\n");
+ };
  const conclusionText=(c.analysis.conclusions?.conclusions??[]).map(x=>[
   "["+x.priority+"] "+x.factor,
-  x.conclusion,
+  formatText(x.conclusion),
   "Evidence strength: "+x.evidenceStrength,
   "Practical importance: "+x.practicalImportance,
   x.adjustedPValue!==undefined?"Adjusted p: "+x.adjustedPValue:"",
