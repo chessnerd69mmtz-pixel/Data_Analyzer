@@ -9,10 +9,11 @@ export class IngestionController {
     this.worker = new Worker(new URL("./IngestionWorker.ts", import.meta.url), { type: "module" });
     const worker = this.worker;
     return await new Promise<ExtractionResponse>((resolve, reject) => {
+      const timeoutMs = Math.min(30 * 60 * 1000, Math.max(120000, Math.ceil(request.fileSize / (25 * 1024 * 1024)) * 30000));
       const timeout = window.setTimeout(() => {
         worker.terminate();
         reject(new Error("Extraction timed out. The file may be too large or malformed."));
-      }, 120000);
+      }, timeoutMs);
 
       worker.addEventListener("message", (event: MessageEvent<{ ok: boolean; response?: ExtractionResponse; error?: string }>) => {
         window.clearTimeout(timeout);

@@ -9,7 +9,9 @@ import { buildReportModel, renderHtml, renderMarkdown } from "../reporting/Repor
 import { renderResultChart } from "../charts/ChartFactory.ts";
 import { initialSettings, createInitialState, type AppState, type SourceSession } from "./AppState.ts";
 
-const MAX_BYTES = 50 * 1024 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const LARGE_FILE_WARNING_BYTES = 512 * 1024 * 1024;
+const LARGE_BINARY_BLOCK_BYTES = 512 * 1024 * 1024;
 const accept = ".csv,.tsv,.xlsx,.xls,.ods,.json,.docx,.pdf,.md,.markdown,.txt,.png,.jpg,.jpeg";
 
 export class App {
@@ -29,7 +31,10 @@ export class App {
   private clear(): void { this.state.error = null; }
 
   private async ingest(fileName: string, bytes: ArrayBuffer, size: number, mimeType: string | undefined, kind: SourceSession["kind"], url?: string): Promise<void> {
-    if (size > MAX_BYTES) throw new Error("The browser-only input limit is 50 MB.");
+    if (size > MAX_BYTES) throw new Error("The browser-only input limit is 2 GB.");
+    if (size > LARGE_BINARY_BLOCK_BYTES && !/\.(csv|tsv)$/i.test(fileName)) {
+      throw new Error("Files above 512 MB currently need to be CSV or TSV. Very large Excel, PDF, DOCX, ODS, JSON and image files are not safely processed by the current in-browser table parsers.");
+    }
     const settings = structuredClone(initialSettings);
     this.state.source = { fileName, bytes, sizeBytes: size, mimeType, settings, kind, sourceUrl: url };
     this.busy("Detecting format and extracting candidate tables…");
@@ -37,7 +42,16 @@ export class App {
     this.clear(); this.state.candidates = result.candidates; this.state.selectedCandidateIds = new Set(result.candidates.length === 1 ? [result.candidates[0].id] : []); this.state.activeCandidate = null; this.confirmation = null; this.state.confirmedDataset = null; this.state.analysis = null; this.state.analysisParameters = null; this.render();
   }
 
-  private async onFile(file: File): Promise<void> { try { await this.ingest(file.name, await file.arrayBuffer(), file.size, file.type, "file"); } catch (e) { this.err(e); } }
+  private async onFile(file: File): Promise<void> {
+    try {
+      if (file.size > MAX_BYTES) throw new Error("The browser-only input limit is 2 GB.");
+      const largeNotice = file.size > LARGE_FILE_WARNING_BYTES
+        ? " Large-file mode: this may use substantial browser memory; keep other heavy applications closed while it is processed."
+        : "";
+      this.busy("Preparing the file for local extraction…" + largeNotice);
+      await this.ingest(file.name, await file.arrayBuffer(), file.size, file.type, "file");
+    } catch (e) { this.err(e); }
+  }
   private async onSheet(url: string): Promise<void> { try { const r = await fetchPublicGoogleSheet(url); await this.ingest("google-sheet.csv", r.bytes, r.bytes.byteLength, "text/csv", "google-sheet", url); } catch (e) { this.err(e); } }
   private async onPaste(text: string): Promise<void> { if (!text.trim()) return this.err("Paste tabular text first."); try { const bytes = new TextEncoder().encode(text).buffer; await this.ingest("manual-paste.csv", bytes, bytes.byteLength, "text/csv", "manual"); } catch (e) { this.err(e); } }
 
@@ -47,7 +61,7 @@ export class App {
   private reset(): void { this.lab?.dispose(); this.lab = null; this.confirmation = null; this.report = null; this.reportMd = ""; this.reportHtml = ""; this.state = createInitialState(); this.renderUpload(); }
 
   private renderUpload(): void {
-    this.root.innerHTML = `<main class="shell"><header class="hero"><span class="eyebrow">Local-first statistics</span><h1>Dataset Analyzer</h1><p>Extract, verify, clean, explore, query and analyze datasets entirely in the browser.</p></header><section class="privacy card"><strong>Your data stays local.</strong><span>No application backend, API key, account, paid service or LLM is required. Public Google Sheets are fetched only when you explicitly provide a public URL.</span></section>${this.error()}<section class="card"><div class="section-heading"><h2>Import</h2><span class="pill high">50 MB max</span></div><label class="dropzone" id="dropzone"><input id="file" type="file" accept="${accept}"/><span class="drop-title">Choose or drop a dataset</span><span class="drop-subtitle">CSV · TSV · Excel · ODS · JSON · DOCX · PDF · Markdown · TXT · PNG/JPG</span></label></section><section class="card"><h2>Public Google Sheets</h2><div class="inline-form"><input id="sheet" placeholder="https://docs.google.com/spreadsheets/d/..."/><button class="secondary" id="sheet-btn">Fetch sheet</button></div></section><section class="card"><h2>Manual table paste</h2><textarea id="paste" rows="9" placeholder="Name,Value,Group\nA,12,X\nB,15,Y"></textarea><button class="secondary" id="paste-btn">Parse table</button></section><section class="card"><h2>Processing rules</h2><p>Numbers in prose are not extracted. Complex/low-confidence extraction is flagged. Multiple candidate tables require explicit selection/combination. Analysis is unavailable until you confirm the editable snapshot.</p></section></main>`;
+    this.root.innerHTML = `<main class="shell"><header class="hero"><span class="eyebrow">Local-first statistics</span><h1>Dataset Analyzer</h1><p>Extract, verify, clean, explore, query and analyze datasets entirely in the browser.</p></header><section class="privacy card"><strong>Your data stays local.</strong><span>No application backend, API key, account, paid service or LLM is required. Public Google Sheets are fetched only when you explicitly provide a public URL.</span></section>${this.error()}<section class="card"><div class="section-heading"><h2>Import</h2><span class="pill high">2 GB max</span></div><label class="dropzone" id="dropzone"><input id="file" type="file" accept="${accept}"/><span class="drop-title">Choose or drop a dataset</span><span class="drop-subtitle">CSV · TSV · Excel · ODS · JSON · DOCX · PDF · Markdown · TXT · PNG/JPG · up to 2 GB</span></label></section><section class="card"><h2>Public Google Sheets</h2><div class="inline-form"><input id="sheet" placeholder="https://docs.google.com/spreadsheets/d/..."/><button class="secondary" id="sheet-btn">Fetch sheet</button></div></section><section class="card"><h2>Manual table paste</h2><textarea id="paste" rows="9" placeholder="Name,Value,Group\nA,12,X\nB,15,Y"></textarea><button class="secondary" id="paste-btn">Parse table</button></section><section class="card"><h2>Processing rules</h2><p>Numbers in prose are not extracted. Complex/low-confidence extraction is flagged. Multiple candidate tables require explicit selection/combination. Analysis is unavailable until you confirm the editable snapshot.</p><p><strong>Large files:</strong> up to 2 GB are accepted. Files over 512 MB are currently supported only for CSV/TSV because other browser table parsers need the entire binary document in memory. Very large CSV/TSV files can require substantial RAM.</p></section></main>`;
     const file = document.querySelector<HTMLInputElement>("#file"); file?.addEventListener("change", () => { const f = file.files?.[0]; if (f) void this.onFile(f); });
     const zone = document.querySelector<HTMLElement>("#dropzone"); zone?.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); }); zone?.addEventListener("dragleave", () => zone.classList.remove("dragover")); zone?.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("dragover"); const f = e.dataTransfer?.files?.[0]; if (f) void this.onFile(f); });
     document.querySelector("#sheet-btn")?.addEventListener("click", () => void this.onSheet((document.querySelector<HTMLInputElement>("#sheet")?.value ?? "").trim()));

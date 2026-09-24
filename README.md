@@ -1,6 +1,6 @@
 # Dataset Analyzer
 
-A free, browser-only dataset analysis workstation. The app is designed for GitHub Pages and does not require an API key, backend, paid service, database, or LLM.
+A free, browser-only dataset analysis workstation. The app is designed for GitHub Pages and does not require an API key, backend, paid service, database, or LLM. Local file imports support up to 2 GB, with a 512 MB advisory threshold for memory-heavy browser processing.
 
 ## Main workflow
 
@@ -8,7 +8,7 @@ Import a dataset → inspect extraction candidates → edit and confirm the exac
 
 ## Supported ingestion
 
-CSV, TSV, XLSX, XLS, ODS, JSON records, DOCX tables, selectable-text PDFs, OCR-backed PDF/image tables, Markdown tables, plain-text tables, public Google Sheets CSV exports, and manual paste.
+CSV, TSV, XLSX, XLS, ODS, JSON records, DOCX tables, selectable-text PDFs, OCR-backed PDF/image tables, Markdown tables, plain-text tables, public Google Sheets CSV exports, and manual paste. Files above 512 MB are currently limited to CSV/TSV because the other browser parsers require the document to be held in memory.
 
 The extractor checks content signatures, detects extension/content mismatches, preserves extraction provenance, and blocks analysis until the user explicitly confirms the editable snapshot.
 
