@@ -1,53 +1,203 @@
 import * as tf from "@tensorflow/tfjs";
 
-function finite(v){return Number.isFinite(v)?Number(v):null;}
-function normalizeRows(rows,means,stds){return rows.map(r=>r.map((v,i)=>(Number(v)-means[i])/(stds[i]||1)));}
-async function run(payload){
-  const cols=payload.featureColumns, target=payload.targetColumn, rows=payload.rows;
-  const targetType=payload.targetType;
-  const usable=rows.map((r,i)=>({r,i})).filter(x=>x.r.every(v=>v!==null&&v!=="")&&x.r[0]!==undefined);
-  if(usable.length<100) return {ok:false,reason:"TensorFlow neural evidence requires at least 100 complete rows."};
-  const X=usable.map(x=>cols.map(c=>Number(x.r[c.index])));
-  const yRaw=usable.map(x=>x.r[target.index]);
-  if(X.some(r=>r.some(v=>!Number.isFinite(v)))) return {ok:false,reason:"TensorFlow neural evidence currently requires numeric features."};
-  const means=cols.map((_,j)=>X.reduce((a,r)=>a+r[j],0)/X.length);
-  const stds=cols.map((_,j)=>Math.sqrt(X.reduce((a,r)=>a+(r[j]-means[j])**2,0)/Math.max(1,X.length-1)));
-  const split=Math.max(20,Math.floor(X.length*0.2));
-  const trainX=X.slice(0,X.length-split),testX=X.slice(X.length-split);
-  let trainY,testY,loss,finalMetric,model;
-  if(targetType==="number"){
-    trainY=yRaw.slice(0,yRaw.length-split).map(Number).map(v=>[v]);testY=yRaw.slice(yRaw.length-split).map(Number);
-    const mean=trainY.reduce((a,r)=>a+r[0],0)/Math.max(1,trainY.length);const sd=Math.sqrt(trainY.reduce((a,r)=>a+(r[0]-mean)**2,0)/Math.max(1,trainY.length-1))||1;
-    trainY=trainY.map(r=>[(r[0]-mean)/sd]);
-    testY=testY.map(v=>(v-mean)/sd);
-    model=tf.sequential();model.add(tf.layers.dense({units:32,activation:"relu",inputShape:[cols.length]}));model.add(tf.layers.dropout({rate:.1}));model.add(tf.layers.dense({units:16,activation:"relu"}));model.add(tf.layers.dense({units:1}));
-    model.compile({optimizer:tf.train.adam(.01),loss:"meanSquaredError"});
-    const xt=tf.tensor2d(normalizeRows(trainX,means,stds)),yt=tf.tensor2d(trainY);
-    await model.fit(xt,yt,{epochs:30,batchSize:Math.min(64,trainX.length),verbose:0,shuffle:true});xt.dispose();yt.dispose();
-    const pred=Array.from(await model.predict(tf.tensor2d(normalizeRows(testX,means,stds))).dataSync());
-    const y=testY;const mse=y.reduce((a,v,i)=>a+(v-pred[i])**2,0)/y.length;const ym=y.reduce((a,v)=>a+v,0)/y.length;const tss=y.reduce((a,v)=>a+(v-ym)**2,0);finalMetric=tss>0?1-(mse*y.length)/tss:0;loss=mse;
-  }else{
-    const classes=[...new Set(yRaw.map(String))];if(classes.length!==2)return {ok:false,reason:"TensorFlow neural evidence currently supports binary classification only."};
-    trainY=yRaw.slice(0,yRaw.length-split).map(v=>[String(v)===classes[1]?1:0]);testY=yRaw.slice(yRaw.length-split).map(v=>String(v)===classes[1]?1:0);
-    model=tf.sequential();model.add(tf.layers.dense({units:32,activation:"relu",inputShape:[cols.length]}));model.add(tf.layers.dropout({rate:.1}));model.add(tf.layers.dense({units:16,activation:"relu"}));model.add(tf.layers.dense({units:1,activation:"sigmoid"}));
-    model.compile({optimizer:tf.train.adam(.01),loss:"binaryCrossentropy"});
-    const xt=tf.tensor2d(normalizeRows(trainX,means,stds)),yt=tf.tensor2d(trainY);
-    await model.fit(xt,yt,{epochs:30,batchSize:Math.min(64,trainX.length),verbose:0,shuffle:true});xt.dispose();yt.dispose();
-    const pred=Array.from(await model.predict(tf.tensor2d(normalizeRows(testX,means,stds))).dataSync()).map(v=>v>=.5?1:0);
-    finalMetric=pred.reduce((a,v,i)=>a+(v===testY[i]?1:0),0)/pred.length;loss=1-finalMetric;
-  }
-  const base=finalMetric;
-  const importance={};
-  for(let j=0;j<cols.length;j++){
-    const perm=testX.map(r=>r.slice());for(let i=perm.length-1;i>0;i--){const k=Math.floor((i+1)*0.37)% (i+1);const tmp=perm[i][j];perm[i][j]=perm[k][j];perm[k][j]=tmp;}
-    const pred=Array.from(await model.predict(tf.tensor2d(normalizeRows(perm,means,stds))).dataSync());
-    let metric;
-    if(targetType==="number"){const y=testY,mse=pred.reduce((a,v,i)=>a+(v-y[i])**2,0)/y.length,ym=y.reduce((a,v)=>a+v,0)/y.length,tss=y.reduce((a,v)=>a+(v-ym)**2,0);metric=tss>0?1-(mse*y.length)/tss:0;}
-    else {const p=pred.map(v=>v>=.5?1:0);metric=p.reduce((a,v,i)=>a+(v===testY[i]?1:0),0)/p.length;}
-    importance[cols[j].name]=Math.max(0,base-metric);
-  }
-  const sum=Object.values(importance).reduce((a,v)=>a+Number(v),0)||1;for(const k of Object.keys(importance))importance[k]=Number(importance[k])/sum;
-  model.dispose();
-  return {ok:true,result:{modelType:"TensorFlow.js MLP",task:targetType==="number"?"regression":"classification",score:base,scoreLabel:targetType==="number"?"holdout R²":"holdout accuracy",featureImportance:importance,notes:["Small local neural network trained entirely in the browser.","Feature importance is permutation-based sensitivity, not causal importance.","Use the neural result as supporting predictive evidence, not as proof of causation."]}};
+interface FeatureColumn { name:string; index:number; }
+interface NeuralPayload {
+  targetColumn:{name:string;index:number};
+  targetType:"number"|"classification";
+  featureColumns:FeatureColumn[];
+  rows:unknown[][];
 }
-self.onmessage=async e=>{try{self.postMessage(await run(e.data));}catch(err){self.postMessage({ok:false,reason:err instanceof Error?err.message:String(err)})}};
+interface NeuralResult {
+  modelType:string;
+  task:"regression"|"classification";
+  score:number;
+  scoreLabel:string;
+  featureImportance:Record<string,number>;
+  notes:string[];
+}
+interface WorkerResponse { ok:boolean; result?:NeuralResult; reason?:string; }
+
+type NumericMatrix = number[][];
+
+function numberValue(value:unknown):number {
+  const n=Number(value);
+  return Number.isFinite(n)?n:NaN;
+}
+
+function normalizeRows(rows:NumericMatrix, means:number[], stds:number[]):NumericMatrix {
+  return rows.map((row:number[])=>row.map((value:number,i:number)=>(value-means[i])/(stds[i]||1)));
+}
+
+function tensorValues(prediction:tf.Tensor|tf.Tensor[]):number[] {
+  const tensor=Array.isArray(prediction)?prediction[0]:prediction;
+  const values=tensor.dataSync() as Float32Array|Int32Array|Uint8Array;
+  const out=Array.from(values as ArrayLike<number>,(value:number)=>Number(value));
+  tensor.dispose();
+  return out;
+}
+
+function regressionR2(actual:number[],predicted:number[]):number {
+  if(actual.length===0)return 0;
+  const mean=actual.reduce((sum,value)=>sum+value,0)/actual.length;
+  const total=actual.reduce((sum,value)=>sum+(value-mean)*(value-mean),0);
+  if(total===0)return 0;
+  const residual=actual.reduce((sum,value,i)=>sum+(value-predicted[i])*(value-predicted[i]),0);
+  return 1-residual/total;
+}
+
+async function trainRegression(
+  trainX:NumericMatrix,
+  testX:NumericMatrix,
+  trainY:number[],
+  testY:number[],
+  means:number[],
+  stds:number[],
+  featureColumns:FeatureColumn[]
+):Promise<NeuralResult>{
+  const yMean=trainY.reduce((sum,value)=>sum+value,0)/trainY.length;
+  const yStd=Math.sqrt(trainY.reduce((sum,value)=>sum+(value-yMean)*(value-yMean),0)/Math.max(1,trainY.length-1))||1;
+  const normalizedY=trainY.map(value=>[(value-yMean)/yStd]);
+
+  const model=tf.sequential();
+  model.add(tf.layers.dense({units:32,activation:"relu",inputShape:[featureColumns.length]}));
+  model.add(tf.layers.dropout({rate:0.1}));
+  model.add(tf.layers.dense({units:16,activation:"relu"}));
+  model.add(tf.layers.dense({units:1}));
+  model.compile({optimizer:tf.train.adam(0.01),loss:"meanSquaredError"});
+
+  const xTrain=tf.tensor2d(normalizeRows(trainX,means,stds));
+  const yTrain=tf.tensor2d(normalizedY);
+  await model.fit(xTrain,yTrain,{epochs:30,batchSize:Math.min(64,trainX.length),verbose:0,shuffle:true});
+  xTrain.dispose(); yTrain.dispose();
+
+  const predictionsScaled=tensorValues(model.predict(tf.tensor2d(normalizeRows(testX,means,stds))));
+  const predictions=predictionsScaled.map(value=>value*yStd+yMean);
+  const score=regressionR2(testY,predictions);
+  const featureImportance:Record<string,number>={};
+
+  for(let column=0;column<featureColumns.length;column+=1){
+    const permuted=testX.map(row=>row.slice());
+    for(let i=permuted.length-1;i>0;i-=1){
+      const swapIndex=(i*37)% (i+1);
+      const tmp=permuted[i][column];
+      permuted[i][column]=permuted[swapIndex][column];
+      permuted[swapIndex][column]=tmp;
+    }
+    const shuffled=tensorValues(model.predict(tf.tensor2d(normalizeRows(permuted,means,stds)))).map(value=>value*yStd+yMean);
+    const shuffledScore=regressionR2(testY,shuffled);
+    featureImportance[featureColumns[column].name]=Math.max(0,score-shuffledScore);
+  }
+
+  const totalImportance=Object.values(featureImportance).reduce((sum,value)=>sum+value,0)||1;
+  for(const name of Object.keys(featureImportance)) featureImportance[name]/=totalImportance;
+
+  model.dispose();
+  return {
+    modelType:"TensorFlow.js MLP",
+    task:"regression",
+    score,
+    scoreLabel:"holdout R²",
+    featureImportance,
+    notes:[
+      "Small local neural network trained entirely in the browser.",
+      "Feature importance is permutation-based sensitivity, not causal importance.",
+      "Use neural evidence as supporting predictive evidence rather than proof of causation."
+    ]
+  };
+}
+
+async function trainClassification(
+  trainX:NumericMatrix,
+  testX:NumericMatrix,
+  trainY:number[],
+  testY:number[],
+  means:number[],
+  stds:number[],
+  featureColumns:FeatureColumn[]
+):Promise<NeuralResult>{
+  const model=tf.sequential();
+  model.add(tf.layers.dense({units:32,activation:"relu",inputShape:[featureColumns.length]}));
+  model.add(tf.layers.dropout({rate:0.1}));
+  model.add(tf.layers.dense({units:16,activation:"relu"}));
+  model.add(tf.layers.dense({units:1,activation:"sigmoid"}));
+  model.compile({optimizer:tf.train.adam(0.01),loss:"binaryCrossentropy"});
+
+  const xTrain=tf.tensor2d(normalizeRows(trainX,means,stds));
+  const yTrain=tf.tensor2d(trainY.map(value=>[value]));
+  await model.fit(xTrain,yTrain,{epochs:30,batchSize:Math.min(64,trainX.length),verbose:0,shuffle:true});
+  xTrain.dispose(); yTrain.dispose();
+
+  const probabilities=tensorValues(model.predict(tf.tensor2d(normalizeRows(testX,means,stds))));
+  const predictions=probabilities.map(value=>value>=0.5?1:0);
+  const correct=predictions.reduce((sum,value,i)=>sum+(value===testY[i]?1:0),0);
+  const score=correct/Math.max(1,testY.length);
+  const featureImportance:Record<string,number>={};
+
+  for(let column=0;column<featureColumns.length;column+=1){
+    const permuted=testX.map(row=>row.slice());
+    for(let i=permuted.length-1;i>0;i-=1){
+      const swapIndex=(i*37)% (i+1);
+      const tmp=permuted[i][column];
+      permuted[i][column]=permuted[swapIndex][column];
+      permuted[swapIndex][column]=tmp;
+    }
+    const shuffled=tensorValues(model.predict(tf.tensor2d(normalizeRows(permuted,means,stds))));
+    const shuffledPredictions=shuffled.map(value=>value>=0.5?1:0);
+    const shuffledCorrect=shuffledPredictions.reduce((sum,value,i)=>sum+(value===testY[i]?1:0),0);
+    featureImportance[featureColumns[column].name]=Math.max(0,score-shuffledCorrect/Math.max(1,testY.length));
+  }
+
+  const totalImportance=Object.values(featureImportance).reduce((sum,value)=>sum+value,0)||1;
+  for(const name of Object.keys(featureImportance)) featureImportance[name]/=totalImportance;
+
+  model.dispose();
+  return {
+    modelType:"TensorFlow.js MLP",
+    task:"classification",
+    score,
+    scoreLabel:"holdout accuracy",
+    featureImportance,
+    notes:[
+      "Small local neural network trained entirely in the browser.",
+      "Binary classification only in this lightweight neural evidence path.",
+      "Feature importance is permutation-based sensitivity, not causal importance."
+    ]
+  };
+}
+
+async function run(payload:NeuralPayload):Promise<WorkerResponse>{
+  const featureColumns=payload.featureColumns;
+  if(featureColumns.length===0)return {ok:false,reason:"No numeric features were supplied."};
+
+  const completeRows=payload.rows.filter((row:unknown[])=>featureColumns.every(column=>Number.isFinite(numberValue(row[column.index]))));
+  const withTarget=completeRows.filter((row:unknown[])=>payload.targetType==="number" || row[payload.targetColumn.index]!==null&&row[payload.targetColumn.index]!==undefined&&String(row[payload.targetColumn.index]).trim()!=="");
+  if(withTarget.length<100)return {ok:false,reason:"TensorFlow neural evidence requires at least 100 complete rows."};
+
+  const matrix:NumericMatrix=withTarget.map((row:unknown[])=>featureColumns.map(column=>numberValue(row[column.index])));
+  const split=Math.max(20,Math.floor(matrix.length*0.2));
+  const trainX=matrix.slice(0,matrix.length-split);
+  const testX=matrix.slice(matrix.length-split);
+
+  const means=featureColumns.map((_,column)=>trainX.reduce((sum,row)=>sum+row[column],0)/trainX.length);
+  const stds=featureColumns.map((_,column)=>Math.sqrt(trainX.reduce((sum,row)=>sum+(row[column]-means[column])*(row[column]-means[column]),0)/Math.max(1,trainX.length-1))||1);
+
+  if(payload.targetType==="number"){
+    const targets=withTarget.map(row=>numberValue(row[payload.targetColumn.index]));
+    if(targets.some(value=>!Number.isFinite(value)))return {ok:false,reason:"The numeric target contains unsupported values."};
+    const trainY=targets.slice(0,targets.length-split);
+    const testY=targets.slice(targets.length-split);
+    return {ok:true,result:await trainRegression(trainX,testX,trainY,testY,means,stds,featureColumns)};
+  }
+
+  const labels=[...new Set(withTarget.map(row=>String(row[payload.targetColumn.index])))];
+  if(labels.length!==2)return {ok:false,reason:"The neural evidence path currently supports binary classification only."};
+  const encoded=withTarget.map(row=>String(row[payload.targetColumn.index])===labels[1]?1:0);
+  const trainY=encoded.slice(0,encoded.length-split);
+  const testY=encoded.slice(encoded.length-split);
+  return {ok:true,result:await trainClassification(trainX,testX,trainY,testY,means,stds,featureColumns)};
+}
+
+self.onmessage=async(event:MessageEvent<NeuralPayload>)=>{
+  try{self.postMessage(await run(event.data));}
+  catch(error){self.postMessage({ok:false,reason:error instanceof Error?error.message:String(error)} as WorkerResponse);}
+};
