@@ -125,7 +125,7 @@ export class App {
       const chartsForConclusion=(item.supportingResultIds??[]).map((id:string)=>charts[id]).filter(Boolean).map((src:string)=>"<img class=\"report-chart dossier-chart\" src=\""+src+"\" alt=\"Supporting analysis chart\"/>").join("");
       const derivation="<ol class=\"derivation-list\">"+(item.derivationSteps??[]).map((step:string)=>"<li>"+esc(step)+"</li>").join("")+"</ol>";
       const alternatives="<ul class=\"response-list\">"+(item.alternativeExplanations??[]).concat(item.caveats??[]).map((x:string)=>"<li>"+esc(x)+"</li>").join("")+"</ul>";
-      return "<section class=\"conclusion-panel \"+(index===0?"active":"hidden")+" data-conclusion-panel=\""+index+"\">"+
+      return '<section class="conclusion-panel '+(index===0?"active":"hidden")+'" data-conclusion-panel="'+index+'">'+
         "<div class=\"dossier-header\"><div><span class=\"pill "+(item.priority==="user-focus"?"high":"medium")+"\">"+(item.priority==="user-focus"?"User priority":"Automatically discovered")+"</span><h2>#"+item.rank+" — "+esc(item.factor)+"</h2><p class=\"muted\">"+esc(item.selectionRationale)+"</p></div><div class=\"validity-score\"><strong>"+item.validityScore.toFixed(1)+"</strong><span>Validity / 100</span></div></div>"+
         "<section class=\"dossier-section\"><h3>Conclusion</h3>"+formatConclusion(item.conclusion)+"</section>"+
         "<section class=\"dossier-section\"><h3>How it was derived</h3>"+derivation+"</section>"+
