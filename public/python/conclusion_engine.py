@@ -206,7 +206,7 @@ def _categorical_factor(df,target,factor,p,res_ids):
     alternatives=[]
     if unequal>3:alternatives.append("Unequal group sizes may reduce precision for the smaller group.")
     if mi>0.1:alternatives.append("The factor contains predictive information beyond a simple mean comparison.")
-    matches=[r for r in res if r.get("groupingColumn")==factor]
+    matches=[r for r in (res_ids or []) if r.get("groupingColumn")==factor]
     ids=[r.get("resultId") for r in matches if r.get("resultId")]
     adj=min([float(r.get("adjustedPValue",r.get("pValue",1))) for r in matches],default=float(pv))
     return {"factor":factor,"checks":checks,"effect":effect,"effectLabel":"standardized group effect" if len(groups)==2 else "eta-squared","ci":None,"adjp":adj,"robust":robust,"nonlinear":False,"mi":mi,"direction":direction,"strength":_strength(adj,robust,checks),"ids":ids,"caveats":caveats,"alternatives":alternatives,"method":test,"p":float(pv)}
@@ -271,7 +271,7 @@ def build_conclusions(dataset,p,results):
         if types.get(f)=="number":
             rec=_numeric_factor(df,target,f,local_p,results,[],rng)
         elif types.get(target)=="number":
-            rec=_categorical_factor(df,target,f,local_p,[])
+            rec=_categorical_factor(df,target,f,local_p,results)
         else:
             rec=None
             d=df[[target,f]].dropna()
