@@ -45,6 +45,11 @@ export interface AnalysisParameters {
   rowFilters:RowFilter[]; confidenceLevel:0.9|0.95|0.99;
   analysisType:"correlation"|"group-comparison"|"trend"|"outliers"|"feature-importance"|"descriptive"|"normality"|"regression"|"clustering"|"anomaly-detection";
   missingDataHandling:"drop"|"mean"|"median"; timeColumn?:string;
+  userFocusFactors?:string[];
+  conclusionQuestion?:string;
+  scanOtherFactors?:boolean;
+  conclusionDepth?:"standard"|"deep"|"research";
+  robustnessResamples?:number;
 }
 export interface PreparedDataSummary {
   inputRows:number; rowsAfterFilters:number; rowsRemovedByFilters:number; rowsRemovedForMissing:number; finalRows:number; columns:number;
@@ -60,7 +65,38 @@ export interface AnalysisResult {
   crossValidatedScore?:number; crossValidatedScoreLabel?:string; findingLabel?:string; caveats:string[];
   dataPoints?:Array<Record<string,string|number|null>>;
 }
+export interface EvidenceCheck {
+  name:string; status:"pass"|"warning"|"fail"|"not-run"; detail:string; value?:number;
+}
+export interface ConclusionEvidence {
+  factor:string;
+  priority:"user-focus"|"discovered";
+  conclusion:string;
+  evidenceStrength:"very-strong"|"strong"|"moderate"|"weak"|"inconclusive";
+  practicalImportance:"high"|"moderate"|"low"|"unknown";
+  direction?:"positive"|"negative"|"mixed"|"nonlinear"|"higher-groups"|"lower-groups"|"none";
+  tests:string[];
+  checks:EvidenceCheck[];
+  effectSize?:number;
+  effectLabel?:string;
+  confidenceInterval?:[number,number];
+  adjustedPValue?:number;
+  robustnessStability?:number;
+  predictiveImportance?:number;
+  caveats:string[];
+  alternativeExplanations:string[];
+  supportingResultIds:string[];
+}
+export interface ConclusionResponse {
+  question?:string;
+  userFocusFactors:string[];
+  discoveredFactors:string[];
+  conclusions:ConclusionEvidence[];
+  overallMessages:string[];
+}
 export interface AnalysisResponse {
   results:AnalysisResult[]; dataSummary:PreparedDataSummary; parameters:AnalysisParameters; messages:string[]; failedChecks:string[];
   multipleTesting:{applied:boolean;method:string;numberOfTests:number};
+  conclusions?:ConclusionResponse;
+  neuralEvidence?:{modelType:string;task:"regression"|"classification";score:number;scoreLabel:string;featureImportance:Record<string,number>;notes:string[]};
 }

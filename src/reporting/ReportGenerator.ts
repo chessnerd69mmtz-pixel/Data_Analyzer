@@ -8,8 +8,19 @@ export function buildReportModel(c:ReportContext):ReportModel{
  const summary=JSON.stringify(c.analysis.dataSummary,null,2);
  const findings=c.analysis.results.filter(r=>r.significant).map(r=>[r.testUsed,"n="+r.n,r.statisticLabel+"="+r.statistic,"p="+r.pValue,"adjusted p="+(r.adjustedPValue??r.pValue),r.effectSizeLabel+"="+r.effectSize,...r.caveats.length?["Notes: "+r.caveats.join(" | ")]:[]].join("; ")).join("\n");
  const nonsig=c.analysis.results.filter(r=>!r.significant).map(r=>r.testUsed+"; adjusted p="+(r.adjustedPValue??r.pValue)).join("\n");
+ const conclusionText=(c.analysis.conclusions?.conclusions??[]).map(x=>[
+  "["+x.priority+"] "+x.factor,
+  x.conclusion,
+  "Evidence strength: "+x.evidenceStrength,
+  "Practical importance: "+x.practicalImportance,
+  x.adjustedPValue!==undefined?"Adjusted p: "+x.adjustedPValue:"",
+  x.robustnessStability!==undefined?"Robustness stability: "+(x.robustnessStability*100).toFixed(1)+"%":"",
+  x.predictiveImportance!==undefined?"Predictive importance: "+(x.predictiveImportance*100).toFixed(1)+"%":"",
+  "Checks: "+(x.checks??[]).map((z:any)=>z.name+": "+z.status).join("; "),
+  "Alternative explanations: "+(x.alternativeExplanations??[]).join(" | ")
+ ].filter(Boolean).join("\n")).join("\n\n");
  const limitations=["Associations and predictive importance are not causal evidence.","Extraction confidence was "+c.dataset.confidence+".",...c.analysis.failedChecks].join("\n");
- const model:ReportModel={sections:{parameters:params,extraction,summary,findings:findings||"No statistically significant result remained after FDR correction.",nonSignificant:nonsig||"None.",limitations},chartImages:c.chartImages,numericProvenance:[]};
+ const model:ReportModel={sections:{parameters:params,extraction,summary,findings:(conclusionText?conclusionText+"\n\n":"")+ (findings||"No statistically significant result remained after FDR correction."),nonSignificant:nonsig||"None.",limitations},chartImages:c.chartImages,numericProvenance:[]};
  const md=renderMarkdown(model);model.numericProvenance=extractNumericTokens(md).map(Number).filter(Number.isFinite);
  const check=validateReportNumbers(md,model.numericProvenance);if(!check.ok)throw Error("Report numeric provenance validation failed: "+check.missing.join(", "));return model;
 }

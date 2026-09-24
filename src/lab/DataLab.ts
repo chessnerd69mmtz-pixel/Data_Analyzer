@@ -42,6 +42,7 @@ export class DataLab {
     const names=this.dataset.columns.map(c=>c.name);
     const selected=[...document.querySelectorAll<HTMLOptionElement>("#lab-features option:checked")].map(o=>o.value);
     const groups=[...document.querySelectorAll<HTMLOptionElement>("#lab-group option:checked")].map(o=>o.value);
+    const focus=[...document.querySelectorAll<HTMLOptionElement>("#lab-focus option:checked")].map(o=>o.value);
     return {
       targetColumn:document.querySelector<HTMLSelectElement>("#lab-target")?.value??names[0]??"",
       groupingColumns:groups,
@@ -51,7 +52,12 @@ export class DataLab {
       confidenceLevel:Number(document.querySelector<HTMLSelectElement>("#lab-confidence")?.value??".95") as 0.9|0.95|0.99,
       analysisType:(document.querySelector<HTMLSelectElement>("#lab-type")?.value??"correlation") as AnalysisParameters["analysisType"],
       missingDataHandling:(document.querySelector<HTMLSelectElement>("#lab-missing")?.value??"drop") as AnalysisParameters["missingDataHandling"],
-      timeColumn:document.querySelector<HTMLSelectElement>("#lab-time")?.value||undefined
+      timeColumn:document.querySelector<HTMLSelectElement>("#lab-time")?.value||undefined,
+      userFocusFactors:focus,
+      conclusionQuestion:(document.querySelector<HTMLTextAreaElement>("#lab-question")?.value||"").trim()||undefined,
+      scanOtherFactors:document.querySelector<HTMLInputElement>("#lab-scan-other")?.checked??true,
+      conclusionDepth:(document.querySelector<HTMLSelectElement>("#lab-depth")?.value||"standard") as "standard"|"deep"|"research",
+      robustnessResamples:Number(document.querySelector<HTMLSelectElement>("#lab-resamples")?.value||"300")
     };
   }
   private render(){
@@ -88,8 +94,11 @@ export class DataLab {
   }
   private query(){return '<article><h3>Local query</h3><div class="query-row"><select id="q-col">'+this.opts()+'</select><select id="q-op"><option>=</option><option>!=</option><option>contains</option><option>&gt;</option><option>&lt;</option></select><input id="q-value" placeholder="value"/><button data-act="query">Run</button></div><div id="query-result"></div></article>';}
   private statistics(){
-    const o=this.opts();
-    return '<div class="stats-box"><div class="parameter-grid"><label>Analysis<select id="lab-type"><option value="correlation">Correlation</option><option value="group-comparison">Group comparison</option><option value="trend">Trend</option><option value="outliers">Outliers</option><option value="feature-importance">Feature importance</option><option value="descriptive">Descriptive</option><option value="normality">Normality</option><option value="regression">Regression</option><option value="clustering">Clustering</option><option value="anomaly-detection">Anomaly detection</option></select></label><label>Target<select id="lab-target">'+o+'</select></label><label>Confidence<select id="lab-confidence"><option value=".9">90%</option><option value=".95" selected>95%</option><option value=".99">99%</option></select></label><label>Missing<select id="lab-missing"><option value="drop">Drop</option><option value="mean">Mean</option><option value="median">Median</option></select></label></div><label>Grouping<select id="lab-group" multiple size="4">'+o+'</select></label><label>Features<select id="lab-features" multiple size="6">'+o+'</select></label><div class="radio-row"><label><input type="radio" name="lab-mode" value="include" checked> Include selected</label><label><input type="radio" name="lab-mode" value="exclude"> Exclude selected</label></div><label>Time<select id="lab-time"><option value="">None</option>'+o+'</select></label><button class="primary" data-act="analyze">Run analysis</button></div>';
+    const o=this.opts(), focusOpts=this.dataset.columns.map(c=>'<option value="'+this.e(c.name)+'">'+this.e(c.name)+'</option>').join("");
+    return '<div class="stats-box">'+
+      '<div class="parameter-grid"><label>Analysis<select id="lab-type"><option value="correlation">Correlation</option><option value="group-comparison">Group comparison</option><option value="trend">Trend</option><option value="outliers">Outliers</option><option value="feature-importance">Feature importance</option><option value="descriptive">Descriptive</option><option value="normality">Normality</option><option value="regression">Regression</option><option value="clustering">Clustering</option><option value="anomaly-detection">Anomaly detection</option></select></label><label>Target<select id="lab-target">'+o+'</select></label><label>Confidence<select id="lab-confidence"><option value=".9">90%</option><option value=".95" selected>95%</option><option value=".99">99%</option></select></label><label>Missing<select id="lab-missing"><option value="drop">Drop</option><option value="mean">Mean</option><option value="median">Median</option></select></label></div>'+
+      '<section class="conclusion-controls"><h3>Conclusion controls</h3><p class="muted">Choose factors you especially want conclusions about. The engine will also scan remaining eligible factors when enabled.</p><label>Specific research question<textarea id="lab-question" rows="3" placeholder="Example: Which factors are most strongly associated with revenue, and are those relationships robust?"></textarea></label><label>Prioritized factors<select id="lab-focus" multiple size="7">'+focusOpts+'</select></label><div class="parameter-grid"><label class="checkbox"><input id="lab-scan-other" type="checkbox" checked> Scan other factors automatically</label><label>Conclusion depth<select id="lab-depth"><option value="standard">Standard</option><option value="deep" selected>Deep</option><option value="research">Research</option></select></label><label>Robustness resamples<select id="lab-resamples"><option value="100">100 · Faster</option><option value="300" selected>300 · Balanced</option><option value="600">600 · Deep</option><option value="1000">1000 · Research</option></select></label></div></section>'+
+      '<label>Grouping<select id="lab-group" multiple size="4">'+o+'</select></label><label>Features<select id="lab-features" multiple size="6">'+o+'</select></label><div class="radio-row"><label><input type="radio" name="lab-mode" value="include" checked> Include selected</label><label><input type="radio" name="lab-mode" value="exclude"> Exclude selected</label></div><label>Time<select id="lab-time"><option value="">None</option>'+o+'</select></label><button class="primary" data-act="analyze">Run full conclusion analysis</button></div>';
   }
   private project(){return '<div class="lab-section-grid"><article><h3>Export</h3><button data-act="export">Project JSON</button><button data-act="csv">CSV</button><button data-act="xlsx">XLSX</button><button data-act="md">Markdown</button></article><article><h3>Lineage</h3><pre>'+this.e(JSON.stringify({datasetId:this.dataset.datasetId,source:this.dataset.source.fileName,confidence:this.dataset.confidence,manualEdits:this.dataset.manualEdits.length,events:this.dataset.extractionLog.length},null,2))+'</pre></article></div>';}
   private grid(edit:boolean){

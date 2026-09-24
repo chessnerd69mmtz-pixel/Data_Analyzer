@@ -1,3 +1,4 @@
+from conclusion_engine import build_conclusions
 import json,math
 import numpy as np,pandas as pd
 from scipy import stats
@@ -167,6 +168,7 @@ def analyze(dataset,p):
   adj=multipletests([x['pValue'] for x in r],alpha=ALPHA[p['confidenceLevel']],method='fdr_bh')[1]
   for x,a in zip(r,adj):x['adjustedPValue']=float(a);x['significant']=bool(a<ALPHA[p['confidenceLevel']])
  summary={'inputRows':start,'rowsAfterFilters':after,'rowsRemovedByFilters':start-after,'rowsRemovedForMissing':after-len(df),'finalRows':len(df),'columns':len(dataset['columns']),'columnTypes':[{'name':c['name'],'type':types[c['name']],'missing':int(raw[c['name']].isna().sum())} for c in dataset['columns']],'missingBeforeHandling':missing,'missingBeforeHandlingByColumn':[{'name':c,'missing':int(raw[c].isna().sum())} for c in features]}
- return {'results':clean(r),'dataSummary':clean(summary),'parameters':p,'messages':[],'failedChecks':[] if r else ['The selected analysis did not have enough compatible data to produce a result.'],'multipleTesting':{'applied':bool(r),'method':'Benjamini-Hochberg FDR','numberOfTests':len(r)}}
+ conclusion=build_conclusions(dataset,p,r)
+ return {'results':clean(r),'dataSummary':clean(summary),'parameters':p,'messages':[],'failedChecks':[] if r else ['The selected analysis did not have enough compatible data to produce a result.'],'multipleTesting':{'applied':bool(r),'method':'Benjamini-Hochberg FDR','numberOfTests':len(r)},'conclusions':clean(conclusion)}
 def main(payload_json):
  payload=json.loads(payload_json);return json.dumps(clean(analyze(payload['dataset'],payload['parameters'])))

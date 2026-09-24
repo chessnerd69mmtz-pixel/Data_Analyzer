@@ -18,7 +18,8 @@
     "papaparse": "5.5.3",
     "pdfjs-dist": "6.3.289",
     "tesseract.js": "7.0.0",
-    "xlsx": "npm:@keep-lts/xlsx@0.18.6"
+    "xlsx": "npm:@keep-lts/xlsx@0.18.6",
+    "@tensorflow/tfjs": "4.22.0"
   },
   "devDependencies": {
     "@types/node": "24.0.0",
